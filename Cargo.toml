@@ -1,0 +1,40 @@
+[package]
+name = "aws-shared-config"
+version = "0.1.0"
+edition = "2024"
+# Edition 2024's minimum. Kept low so that tools pinned to the AWS SDK's
+# minimum Rust version can use the crate; the msrv job in CI checks it.
+rust-version = "1.85"
+authors = ["Andrii Radyk"]
+description = "Lossless parser and editor for ~/.aws/config and ~/.aws/credentials: edits keep comments and formatting, reading follows the AWS SDKs' rules, serde support"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/AnderEnder/aws-shared-config"
+homepage = "https://github.com/AnderEnder/aws-shared-config"
+documentation = "https://docs.rs/aws-shared-config"
+readme = "README.md"
+keywords = ["aws", "credentials", "config", "ini", "serde"]
+categories = ["config", "parser-implementations", "encoding"]
+include = [
+    "/src/**",
+    "/Cargo.toml",
+    "/README.md",
+    "/SPEC.md",
+    "/CHANGELOG.md",
+    "/LICENSE-MIT",
+    "/LICENSE-APACHE",
+]
+
+[features]
+default = ["serde"]
+# `Section::deserialize` and `SectionMut::serialize`.
+serde = ["dep:serde"]
+
+[dependencies]
+serde = { version = "1", optional = true }
+
+[dev-dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[package.metadata.docs.rs]
+all-features = true

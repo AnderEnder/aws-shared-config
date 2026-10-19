@@ -1,0 +1,28 @@
+name: Security audit
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  schedule:
+    # Daily, so newly disclosed advisories on unchanged dependencies are caught.
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@v2.85.6
+        with:
+          tool: cargo-audit
+      - name: cargo audit
+        # To ignore an advisory, list it in .cargo/audit.toml (auto-discovered)
+        # with a comment saying why.
+        run: cargo audit

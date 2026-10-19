@@ -1,0 +1,123 @@
+# A release, on a pushed tag vX.Y.Z. The jobs run in order, and each starts only if the ones
+# before it passed, so nothing is published when a check fails:
+#
+#   version         scripts/ci.sh release: the tag is vX.Y.Z for the version in Cargo.toml, and
+#                   CHANGELOG.md has a section for it
+#   checks          ci.yml, that is scripts/ci.sh, on Linux, macOS and Windows, and the MSRV
+#   publish         cargo publish, with a short-lived crates.io token from Trusted Publishing;
+#                   skipped with a notice when crates.io has the version already, so that the
+#                   workflow can be run again
+#   github-release  the GitHub release for the tag, with the version's CHANGELOG.md section as
+#                   its notes; existing notes are preserved
+#
+# Publishing uses crates.io Trusted Publishing: no crates.io token is stored in the repository.
+# The publish job runs in the GitHub environment `release` and asks GitHub for an OIDC token
+# (`id-token: write`), which rust-lang/crates-io-auth-action exchanges for a crates.io token that
+# lasts for the job. It works only once the crate exists on crates.io and names this workflow as
+# its trusted publisher, in the crate's settings on crates.io, Trusted Publishing, GitHub:
+# repository owner `AnderEnder`, repository `aws-shared-config`, workflow filename
+# `release.yml`, environment `release`. The first version is therefore published by hand with
+# `cargo publish`; this workflow then finds it on crates.io and only creates the GitHub release.
+# GitHub creates the environment on first use; creating it beforehand in the repository's
+# settings lets it be limited to `v*` tags or require an approval.
+#
+# The jobs that publish use no cache, so what they publish is built from the tagged commit alone.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  version:
+    name: tag and version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - name: scripts/ci.sh release
+        run: scripts/ci.sh release "$GITHUB_REF_NAME"
+
+  checks:
+    needs: version
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - name: scripts/ci.sh release
+        run: scripts/ci.sh release "$GITHUB_REF_NAME"
+      - name: Is the version on crates.io
+        id: published
+        run: |
+          name=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].name')
+          version=${GITHUB_REF_NAME#v}
+          # The crate's file in the sparse index lists every published version, one JSON object
+          # per line.
+          lower=$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]')
+          case ${#lower} in
+          1) path=1/$lower ;;
+          2) path=2/$lower ;;
+          3) path=3/${lower:0:1}/$lower ;;
+          *) path=${lower:0:2}/${lower:2:2}/$lower ;;
+          esac
+          if curl -fsSL "https://index.crates.io/$path" 2>/dev/null |
+            jq -e --arg v "$version" 'select(.vers == $v)' >/dev/null; then
+            echo "::notice title=Not published::crates.io already has $name $version; nothing to publish."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: crates.io token (Trusted Publishing)
+        if: steps.published.outputs.exists == 'false'
+        id: auth
+        uses: rust-lang/crates-io-auth-action@v1
+      - name: Publish to crates.io
+        if: steps.published.outputs.exists == 'false'
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+        run: cargo publish --locked
+
+  github-release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - name: scripts/ci.sh release
+        run: scripts/ci.sh release "$GITHUB_REF_NAME"
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "::notice title=GitHub release::A release for $GITHUB_REF_NAME exists already; preserving its notes."
+          else
+            gh release create "$GITHUB_REF_NAME" --verify-tag --title "$GITHUB_REF_NAME" \
+              --notes-file target/release-notes.md
+          fi

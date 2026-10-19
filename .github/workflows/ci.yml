@@ -1,0 +1,45 @@
+# Runs scripts/ci.sh, the checks a developer runs locally before pushing, with stable Rust on
+# Linux, macOS and Windows, and its MSRV checks with the rust-version from Cargo.toml.
+# release.yml calls this workflow for its checks.
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  checks:
+    name: ${{ matrix.os }}, stable
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - name: scripts/ci.sh
+        run: scripts/ci.sh
+        shell: bash
+
+  msrv:
+    name: ubuntu-latest, 1.85 (MSRV)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.85
+      - uses: Swatinem/rust-cache@v2
+      - name: scripts/ci.sh msrv
+        run: scripts/ci.sh msrv
