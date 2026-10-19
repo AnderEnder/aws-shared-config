@@ -12,3 +12,7 @@ updates:
     interval: daily
     time: "04:00"
   open-pull-requests-limit: 10
+  ignore:
+    # Its refs name Rust toolchains (`@stable`, `@1.85` for the MSRV job), not
+    # versions of the action, so updates would change the toolchain under test.
+    - dependency-name: dtolnay/rust-toolchain
