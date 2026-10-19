@@ -1,5 +1,12 @@
 # aws-shared-config
 
+[![CI](https://github.com/AnderEnder/aws-shared-config/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/AnderEnder/aws-shared-config/actions/workflows/ci.yml)
+[![Security audit](https://github.com/AnderEnder/aws-shared-config/actions/workflows/audit.yml/badge.svg?branch=main)](https://github.com/AnderEnder/aws-shared-config/actions/workflows/audit.yml)
+[![crates.io](https://img.shields.io/crates/v/aws-shared-config.svg)](https://crates.io/crates/aws-shared-config)
+[![docs.rs](https://img.shields.io/docsrs/aws-shared-config)](https://docs.rs/aws-shared-config)
+[![MSRV](https://img.shields.io/crates/msrv/aws-shared-config)](https://github.com/AnderEnder/aws-shared-config/blob/main/Cargo.toml)
+[![License](https://img.shields.io/crates/l/aws-shared-config.svg)](#license)
+
 A lossless parser and editor for the AWS shared `config` and `credentials`
 files (`~/.aws/config`, `~/.aws/credentials`): read and change profiles
 without losing comments or formatting.
