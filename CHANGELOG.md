@@ -2,7 +2,7 @@
 
 All notable changes to this crate are recorded here.
 
-## 0.1.0
+## 0.1.0 - 2026-10-19
 
 The first release: a lossless parser and editor for the AWS shared `config` and
 `credentials` files.
